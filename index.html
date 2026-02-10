@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monty Hall: Game & Math</title>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f8; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        
+        h1 { color: #2c3e50; margin-bottom: 20px; }
+
+        /* --- Tab Navigation --- */
+        .tabs-nav {
+            display: flex;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: #fff;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover { background: #f9f9f9; color: #2c3e50; }
+        
+        .tab-btn.active {
+            color: #2980b9;
+            border-bottom: 3px solid #3498db;
+            background: #f0f8ff;
+        }
+
+        /* --- Main Container --- */
+        .container { max-width: 900px; width: 100%; min-height: 600px; position: relative; }
+
+        .tab-content { display: none; animation: fadeIn 0.4s; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- GAME STYLES --- */
+        .game-panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; min-height: 450px; margin-bottom: 20px; }
+        .doors-container { display: flex; justify-content: center; gap: 20px; margin: 30px 0; perspective: 1000px; }
+        .door-wrapper { width: 120px; height: 180px; position: relative; cursor: pointer; }
+        .door { width: 100%; height: 100%; background: #34495e; border-radius: 8px; position: absolute; top: 0; left: 0; display: flex; justify-content: center; align-items: center; color: white; font-size: 3em; font-weight: bold; transition: transform 0.6s, background 0.3s; transform-origin: left; border: 4px solid #2c3e50; z-index: 2; backface-visibility: hidden; }
+        .door.open { transform: rotateY(-110deg); }
+        .door.selected { border-color: #f1c40f; box-shadow: 0 0 15px #f1c40f; }
+        .prize { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 1; background: #ecf0f1; border-radius: 8px; border: 4px dashed #bdc3c7; box-sizing: border-box; padding: 10px; overflow: hidden; }
+        .prize-icon { width: 100%; height: 100%; }
+        .car-icon path { fill: #e74c3c; } 
+        .goat-body { fill: #95a5a6; }
+        .goat-horn { fill: none; stroke: #7f8c8d; stroke-width: 8; stroke-linecap: round; }
+        .goat-ear { fill: #95a5a6; }
+        .goat-face-detail { fill: #2c3e50; }
+        .status-msg { font-size: 1.4em; margin-bottom: 20px; font-weight: bold; min-height: 1.4em; }
+        .stats-panel { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .stat-col { text-align: center; }
+        .stat-title { font-weight: bold; margin-bottom: 10px; display: block; }
+        .bar-container { height: 30px; background: #eee; border-radius: 15px; overflow: hidden; margin: 10px 0; position: relative; }
+        .bar-fill { height: 100%; width: 0%; transition: width 0.5s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.8em; font-weight: bold; }
+        .switch-bar { background: #27ae60; }
+        .stay-bar { background: #3498db; }
+        .btn { border: none; padding: 10px 20px; border-radius: 4px; font-size: 1em; cursor: pointer; margin: 5px; font-weight: bold; transition: background 0.2s; color: white; }
+        .btn-switch { background: #2ecc71; } .btn-switch:hover { background: #27ae60; }
+        .btn-stay { background: #3498db; } .btn-stay:hover { background: #2980b9; }
+        .btn-reset { background: #95a5a6; } .btn-reset:hover { background: #7f8c8d; }
+        .btn-sim { background: #8e44ad; } .btn-sim:hover { background: #71368a; }
+        .btn-clear { background: #e74c3c; font-size: 0.9em; padding: 8px 15px;} .btn-clear:hover { background: #c0392b; }
+        .controls-area { margin-top: 20px; min-height: 50px;}
+
+        /* --- TREE DIAGRAM STYLES --- */
+        .tree-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow-x: auto; text-align: center; }
+        .tree-svg { width: 100%; max-width: 800px; height: auto; min-width: 600px; }
+        .tree-node-rect { fill: #fff; stroke: #34495e; stroke-width: 2px; rx: 5; ry: 5; }
+        .tree-node-text { font-size: 14px; font-family: sans-serif; fill: #333; text-anchor: middle; alignment-baseline: middle; font-weight: bold; }
+        .tree-line { stroke: #bdc3c7; stroke-width: 2px; fill: none; }
+        .tree-label { font-size: 12px; fill: #7f8c8d; background: white; }
+        .outcome-box { font-weight: bold; }
+
+        /* --- BAYES STYLES --- */
+        .bayes-container { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); font-size: 1.05em; line-height: 1.6; }
+        .bayes-step { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .bayes-step:last-child { border-bottom: none; }
+        .bayes-step h3 { color: #2c3e50; margin-top: 0; font-size: 1.2em; border-left: 4px solid #3498db; padding-left: 10px; }
+        
+        /* Math display styles */
+        .math-block { 
+            background: #f8f9fa; 
+            padding: 15px; 
+            border-radius: 5px; 
+            text-align: center; 
+            font-family: 'Times New Roman', Times, serif; 
+            font-style: italic;
+            font-size: 1.2em;
+            margin: 15px 0; 
+            overflow-x: auto;
+        }
+        .fraction { display: inline-block; text-align: center; vertical-align: middle; margin: 0 5px; font-style: normal; }
+        .fraction > span { display: block; padding: 0 5px; }
+        .fraction span.numerator { border-bottom: 1px solid #333; }
+        .fraction span.denominator { border-top: 0px; }
+        
+        .var { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold;}
+        .highlight { color: #d35400; font-weight: bold; }
+        
+        ul.bayes-list { list-style-type: none; padding-left: 10px; }
+        ul.bayes-list li { margin-bottom: 10px; padding-left: 15px; border-left: 3px solid #eee; }
+        ul.bayes-list li strong { color: #34495e; }
+    </style>
+</head>
+<body>
+
+    <h1>The Monty Hall Paradox</h1>
+
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('play')">Play & Simulate</button>
+        <button class="tab-btn" onclick="switchTab('tree')">Tree Diagram</button>
+        <button class="tab-btn" onclick="switchTab('bayes')">Bayes' Rule</button>
+    </div>
+
+    <div class="container">
+        
+        <div id="tab-play" class="tab-content active">
+            <div class="game-panel">
+                <div class="status-msg" id="statusMsg">Pick a Door!</div>
+                
+                <div class="doors-container">
+                    <div class="door-wrapper" onclick="handleDoorClick(0)">
+                        <div class="prize" id="prize0"></div>
+                        <div class="door" id="door0">1</div>
+                    </div>
+                    <div class="door-wrapper" onclick="handleDoorClick(1)">
+                        <div class="prize" id="prize1"></div>
+                        <div class="door" id="door1">2</div>
+                    </div>
+                    <div class="door-wrapper" onclick="handleDoorClick(2)">
+                        <div class="prize" id="prize2"></div>
+                        <div class="door" id="door2">3</div>
+                    </div>
+                </div>
+
+                <div class="controls-area">
+                    <div id="choiceControls" style="display:none;">
+                        <button class="btn btn-switch" onclick="finalizeChoice(true)">SWITCH</button>
+                        <button class="btn btn-stay" onclick="finalizeChoice(false)">STAY</button>
+                    </div>
+                    
+                    <button class="btn btn-reset" onclick="initGame()" id="btnPlayAgain" style="display:none">Play Again</button>
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-col">
+                    <span class="stat-title" style="color:#3498db">Strategy: STAY</span>
+                    <div class="bar-container">
+                        <div class="bar-fill stay-bar" id="barStay">0%</div>
+                    </div>
+                    <div id="textStay">0 Wins / 0 Games</div>
+                </div>
+
+                <div class="stat-col">
+                    <span class="stat-title" style="color:#27ae60">Strategy: SWITCH</span>
+                    <div class="bar-container">
+                        <div class="bar-fill switch-bar" id="barSwitch">0%</div>
+                    </div>
+                    <div id="textSwitch">0 Wins / 0 Games</div>
+                </div>
+                
+                <div style="grid-column: 1 / -1; text-align: center; border-top: 1px solid #eee; padding-top: 15px; margin-top: 5px;">
+                    <button class="btn btn-sim" onclick="runSimulation()">⚡ Simulate 1,000 Games</button>
+                    <button class="btn btn-clear" onclick="resetStats()">Reset Stats</button>
+                    <p style="font-size:0.85em; color:#777; margin-top:5px;">Simulate runs 1,000 random computer plays to show probabilities.</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-tree" class="tab-content">
+            <div class="tree-container">
+                <h2 style="margin-top:0;">Visualizing the Paths</h2>
+                <p>Assume you initially pick <strong>Door 1</strong>. Follow the branches to see why Switching wins 2/3 of the time.</p>
+                <svg class="tree-svg" viewBox="0 0 800 500">
+                    <defs>
+                        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#bdc3c7" />
+                        </marker>
+                    </defs>
+
+                    <g transform="translate(50, 250)">
+                        <rect x="-40" y="-20" width="80" height="40" class="tree-node-rect" style="fill:#3498db; stroke:none;"/>
+                        <text x="0" y="5" class="tree-node-text" style="fill:white;">You Pick #1</text>
+                    </g>
+
+                    <path d="M90 250 L200 100" class="tree-line" marker-end="url(#arrow)"/>
+                    <path d="M90 250 L200 250" class="tree-line" marker-end="url(#arrow)"/>
+                    <path d="M90 250 L200 400" class="tree-line" marker-end="url(#arrow)"/>
+
+                    <text x="130" y="160" class="tree-label">1/3</text>
+                    <text x="150" y="240" class="tree-label">1/3</text>
+                    <text x="130" y="340" class="tree-label">1/3</text>
+
+                    <g transform="translate(250, 100)">
+                        <rect x="-50" y="-20" width="100" height="40" class="tree-node-rect"/>
+                        <text x="0" y="5" class="tree-node-text">Car @ Door 1</text>
+                    </g>
+                    <g transform="translate(250, 250)">
+                        <rect x="-50" y="-20" width="100" height="40" class="tree-node-rect"/>
+                        <text x="0" y="5" class="tree-node-text">Car @ Door 2</text>
+                    </g>
+                    <g transform="translate(250, 400)">
+                        <rect x="-50" y="-20" width="100" height="40" class="tree-node-rect"/>
+                        <text x="0" y="5" class="tree-node-text">Car @ Door 3</text>
+                    </g>
+
+                    <path d="M300 100 L390 100" class="tree-line" marker-end="url(#arrow)"/>
+                    <path d="M300 250 L390 250" class="tree-line" marker-end="url(#arrow)"/>
+                    <path d="M300 400 L390 400" class="tree-line" marker-end="url(#arrow)"/>
+
+                    <g transform="translate(450, 100)">
+                        <rect x="-60" y="-25" width="120" height="50" class="tree-node-rect" style="stroke-dasharray: 4"/>
+                        <text x="0" y="-5" class="tree-node-text" style="font-size:12px">Host opens</text>
+                        <text x="0" y="15" class="tree-node-text" style="font-size:12px">Door 2 or 3</text>
+                    </g>
+                    <g transform="translate(450, 250)">
+                        <rect x="-60" y="-25" width="120" height="50" class="tree-node-rect" style="stroke:#e74c3c"/>
+                        <text x="0" y="-5" class="tree-node-text" style="font-size:12px">Host MUST</text>
+                        <text x="0" y="15" class="tree-node-text" style="font-size:12px">Open Door 3</text>
+                    </g>
+                    <g transform="translate(450, 400)">
+                        <rect x="-60" y="-25" width="120" height="50" class="tree-node-rect" style="stroke:#e74c3c"/>
+                        <text x="0" y="-5" class="tree-node-text" style="font-size:12px">Host MUST</text>
+                        <text x="0" y="15" class="tree-node-text" style="font-size:12px">Open Door 2</text>
+                    </g>
+
+                    <path d="M510 100 L610 80" class="tree-line"/>
+                    <path d="M510 100 L610 120" class="tree-line"/>
+                    
+                    <path d="M510 250 L610 230" class="tree-line"/>
+                    <path d="M510 250 L610 270" class="tree-line"/>
+
+                    <path d="M510 400 L610 380" class="tree-line"/>
+                    <path d="M510 400 L610 420" class="tree-line"/>
+
+                    <text x="640" y="85" class="outcome-box" fill="#e74c3c">Switch: LOSE</text>
+                    <text x="640" y="125" class="outcome-box" fill="#27ae60">Stay: WIN</text>
+
+                    <text x="640" y="235" class="outcome-box" fill="#27ae60">Switch: WIN</text>
+                    <text x="640" y="275" class="outcome-box" fill="#e74c3c">Stay: LOSE</text>
+
+                    <text x="640" y="385" class="outcome-box" fill="#27ae60">Switch: WIN</text>
+                    <text x="640" y="425" class="outcome-box" fill="#e74c3c">Stay: LOSE</text>
+
+                </svg>
+            </div>
+        </div>
+
+        <div id="tab-bayes" class="tab-content">
+            <div class="bayes-container">
+                <h2 style="margin-top:0;">Formal Bayesian Analysis</h2>
+                <p><strong>Hypothesis (<span class="var">H<sub>i</sub></span>):</strong> The car is behind Door <span class="var">i</span> (where <span class="var">i</span> = 1, 2, 3).<br>
+                <strong>Evidence (<span class="var">E</span>):</strong> Monty opens Door 3 to reveal a goat.<br>
+                <strong>Assumption:</strong> You initially picked Door 1.</p>
+                
+                <div class="bayes-step">
+                    <h3>1. The Priors (Before Monty Opens a Door)</h3>
+                    <p>Since the car is placed randomly, the prior probability for any door is equal:</p>
+                    <div class="math-block">
+                        P(H<sub>1</sub>) = P(H<sub>2</sub>) = P(H<sub>3</sub>) = <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div>
+                    </div>
+                </div>
+
+                <div class="bayes-step">
+                    <h3>2. The Likelihoods (The Host's Constraints)</h3>
+                    <p>This is the critical step. We calculate <span class="var">P(E|H<sub>i</sub>)</span>: <em>"What is the probability Monty opens Door 3, given the car is behind Door i?"</em></p>
+                    <ul class="bayes-list">
+                        <li>
+                            <strong>If car is at Door 1 (<span class="var">H<sub>1</sub></span>):</strong> You picked Door 1. Monty can open either Door 2 or Door 3. Assuming he picks randomly between them:
+                            <div class="math-block" style="margin:5px 0;">P(E | H<sub>1</sub>) = <div class="fraction"><span class="numerator">1</span><span class="denominator">2</span></div></div>
+                        </li>
+                        <li>
+                            <strong>If car is at Door 2 (<span class="var">H<sub>2</sub></span>):</strong> You picked Door 1. The car is at Door 2. Monty <strong>must</strong> open Door 3 (he cannot reveal the car at 2, and cannot open your door 1).
+                            <div class="math-block" style="margin:5px 0;">P(E | H<sub>2</sub>) = 1</div>
+                        </li>
+                        <li>
+                            <strong>If car is at Door 3 (<span class="var">H<sub>3</sub></span>):</strong> You picked Door 1. The car is at Door 3. Monty <strong>cannot</strong> open Door 3 (he would reveal the car).
+                            <div class="math-block" style="margin:5px 0;">P(E | H<sub>3</sub>) = 0</div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bayes-step">
+                    <h3>3. The Denominator (Total Probability of <span class="var">E</span>)</h3>
+                    <p>We sum the probabilities of Monty opening Door 3 across all scenarios:</p>
+                    <div class="math-block">
+                        P(E) = P(E | H<sub>1</sub>)P(H<sub>1</sub>) + P(E | H<sub>2</sub>)P(H<sub>2</sub>) + P(E | H<sub>3</sub>)P(H<sub>3</sub>)
+                        <br><br>
+                        P(E) = 
+                        (<div class="fraction"><span class="numerator">1</span><span class="denominator">2</span></div> &middot; <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div>) + 
+                        (1 &middot; <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div>) + 
+                        (0 &middot; <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div>) 
+                        = <div class="fraction"><span class="numerator">1</span><span class="denominator">6</span></div> + <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div> = <div class="fraction"><span class="numerator">1</span><span class="denominator">2</span></div>
+                    </div>
+                </div>
+
+                <div class="bayes-step">
+                    <h3>4. The Posterior (The Result)</h3>
+                    <p>We apply Bayes' Rule to update the probability of each hypothesis given the Evidence (<span class="var">E</span>).</p>
+                    
+                    <p><strong>Probability of Staying (Door 1):</strong></p>
+                    <div class="math-block">
+                        P(H<sub>1</sub> | E) = 
+                        <div class="fraction">
+                            <span class="numerator">P(E | H<sub>1</sub>)P(H<sub>1</sub>)</span>
+                            <span class="denominator">P(E)</span>
+                        </div> = 
+                        <div class="fraction">
+                            <span class="numerator"><div class="fraction"><span class="numerator">1</span><span class="denominator">6</span></div></span>
+                            <span class="denominator"><div class="fraction"><span class="numerator">1</span><span class="denominator">2</span></div></span>
+                        </div> = 
+                        <span class="highlight"> <div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div></span>
+                    </div>
+
+                    <p><strong>Probability of Switching (Door 2):</strong></p>
+                    <div class="math-block">
+                        P(H<sub>2</sub> | E) = 
+                        <div class="fraction">
+                            <span class="numerator">P(E | H<sub>2</sub>)P(H<sub>2</sub>)</span>
+                            <span class="denominator">P(E)</span>
+                        </div> = 
+                        <div class="fraction">
+                            <span class="numerator"><div class="fraction"><span class="numerator">1</span><span class="denominator">3</span></div></span>
+                            <span class="denominator"><div class="fraction"><span class="numerator">1</span><span class="denominator">2</span></div></span>
+                        </div> = 
+                        <span class="highlight"> <div class="fraction"><span class="numerator">2</span><span class="denominator">3</span></div></span>
+                    </div>
+                    <p><strong>Conclusion:</strong> Switching doubles your probability of winning.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // --- TABS LOGIC ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(`tab-${tabId}`).classList.add('active');
+    }
+
+    // --- GAME LOGIC ---
+    
+    // SVG Constants
+    const GOAT_SVG = `<svg class="prize-icon goat-icon" viewBox="0 0 100 100"><path d="M35 35 Q 20 10 5 25" class="goat-horn" /><path d="M65 35 Q 80 10 95 25" class="goat-horn" /><ellipse cx="20" cy="50" rx="15" ry="6" class="goat-ear" transform="rotate(-20 20 50)" /><ellipse cx="80" cy="50" rx="15" ry="6" class="goat-ear" transform="rotate(20 80 50)" /><path d="M30 35 L 70 35 L 65 75 L 35 75 Z" class="goat-body" stroke="#95a5a6" stroke-width="15" stroke-linejoin="round" /><circle cx="40" cy="50" r="4" fill="#2c3e50"/><circle cx="60" cy="50" r="4" fill="#2c3e50"/><path d="M42 68 L 58 68 L 50 78 Z" class="goat-face-detail" /><line x1="50" y1="68" x2="50" y2="78" stroke="#2c3e50" stroke-width="1" /></svg>`;
+    const CAR_SVG = `<svg class="prize-icon car-icon" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7.25h10.29l1.04 3H5.81l1.04-3zM5.5 16c-.83 0-1.5-.67-1.5-1.5S4.67 13 5.5 13s1.5.67 1.5 1.5S6.33 16 5.5 16zm13 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>`;
+
+    let carLocation = 0;
+    let selectedDoor = -1;
+    let openedDoor = -1; 
+    let gameState = 'PICK'; 
+
+    let stats = {
+        stay: { wins: 0, total: 0 },
+        switch: { wins: 0, total: 0 }
+    };
+
+    function initGame() {
+        document.querySelectorAll('.door').forEach(el => { el.classList.remove('open', 'selected'); });
+        document.getElementById('choiceControls').style.display = 'none';
+        document.getElementById('btnPlayAgain').style.display = 'none';
+        document.getElementById('statusMsg').innerText = "Pick a Door!";
+        document.getElementById('statusMsg').style.color = "#333";
+
+        carLocation = Math.floor(Math.random() * 3);
+        selectedDoor = -1;
+        openedDoor = -1;
+        gameState = 'PICK';
+
+        for(let i=0; i<3; i++) {
+            const prizeEl = document.getElementById(`prize${i}`);
+            if (i === carLocation) { prizeEl.innerHTML = CAR_SVG; } else { prizeEl.innerHTML = GOAT_SVG; }
+        }
+    }
+
+    function handleDoorClick(doorIndex) {
+        if (gameState === 'PICK') {
+            selectedDoor = doorIndex;
+            document.querySelectorAll('.door').forEach(d => d.classList.remove('selected'));
+            document.getElementById(`door${doorIndex}`).classList.add('selected');
+            revealGoat();
+        }
+    }
+
+    function revealGoat() {
+        const availableDoors = [0, 1, 2].filter(d => d !== carLocation && d !== selectedDoor);
+        openedDoor = availableDoors[Math.floor(Math.random() * availableDoors.length)];
+        
+        setTimeout(() => {
+            document.getElementById(`door${openedDoor}`).classList.add('open');
+            document.getElementById('statusMsg').innerText = `Host reveals a Goat behind Door ${openedDoor+1}!`;
+            gameState = 'DECIDE';
+            setTimeout(() => {
+                document.getElementById('statusMsg').innerText = "Do you want to Switch or Stay?";
+                document.getElementById('choiceControls').style.display = 'block';
+            }, 800);
+        }, 500);
+    }
+
+    function finalizeChoice(didSwitch) {
+        document.getElementById('choiceControls').style.display = 'none';
+        let finalDoor = selectedDoor;
+        if (didSwitch) {
+            finalDoor = [0, 1, 2].find(d => d !== selectedDoor && d !== openedDoor);
+        }
+        document.querySelectorAll('.door').forEach(d => d.classList.remove('selected'));
+        document.getElementById(`door${finalDoor}`).classList.add('selected');
+        document.getElementById(`door${finalDoor}`).classList.add('open');
+        const won = (finalDoor === carLocation);
+        setTimeout(() => {
+            document.querySelectorAll('.door').forEach(d => d.classList.add('open'));
+        }, 500);
+
+        const msg = document.getElementById('statusMsg');
+        if (won) {
+            msg.innerText = "You Found the Car! You Win! 😄";
+            msg.style.color = "#27ae60";
+        } else {
+            msg.innerText = "It's a Goat. You Lose. 😞";
+            msg.style.color = "#c0392b";
+        }
+
+        if (didSwitch) {
+            stats.switch.total++;
+            if (won) stats.switch.wins++;
+        } else {
+            stats.stay.total++;
+            if (won) stats.stay.wins++;
+        }
+        updateStatsUI();
+        document.getElementById('btnPlayAgain').style.display = 'inline-block';
+        gameState = 'END';
+    }
+
+    function runSimulation() {
+        for(let i=0; i<1000; i++) {
+            const car = Math.floor(Math.random() * 3);
+            const pick = Math.floor(Math.random() * 3);
+            stats.stay.total++;
+            if (pick === car) stats.stay.wins++;
+            stats.switch.total++;
+            if (pick !== car) stats.switch.wins++;
+        }
+        updateStatsUI();
+    }
+
+    function resetStats() {
+        stats = { stay: { wins: 0, total: 0 }, switch: { wins: 0, total: 0 } };
+        updateStatsUI();
+        initGame();
+    }
+
+    function updateStatsUI() {
+        const stayPct = stats.stay.total === 0 ? 0 : (stats.stay.wins / stats.stay.total * 100).toFixed(1);
+        document.getElementById('barStay').style.width = Math.max(stayPct, 5) + "%";
+        document.getElementById('barStay').innerText = stayPct + "%";
+        document.getElementById('textStay').innerText = `${stats.stay.wins} Wins / ${stats.stay.total} Games`;
+
+        const switchPct = stats.switch.total === 0 ? 0 : (stats.switch.wins / stats.switch.total * 100).toFixed(1);
+        document.getElementById('barSwitch').style.width = Math.max(switchPct, 5) + "%";
+        document.getElementById('barSwitch').innerText = switchPct + "%";
+        document.getElementById('textSwitch').innerText = `${stats.switch.wins} Wins / ${stats.switch.total} Games`;
+    }
+
+    initGame();
+
+</script>
+
+</body>
+</html>
